@@ -1,0 +1,40 @@
+(async()=>{
+ const overlay=document.createElement('div');overlay.id='sync-gate';overlay.style='position:fixed;inset:0;background:#f7f7f7;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;font-family:sans-serif';document.body.appendChild(overlay);
+ const form=(msg='직원 공용 비밀번호를 입력하세요')=>{overlay.innerHTML='';const box=document.createElement('div');box.style='background:white;padding:28px;border-radius:18px;max-width:420px;width:100%;box-shadow:0 4px 24px #0001';const title=document.createElement('h2');title.textContent='출석관리 직원 로그인';const p=document.createElement('p');p.textContent=msg;const input=document.createElement('input');input.type='password';input.placeholder='공용 비밀번호';input.style='padding:12px;width:100%;box-sizing:border-box;margin:12px 0';const btn=document.createElement('button');btn.textContent='로그인';btn.style='background:#ff385c;color:white;border:0;padding:12px 20px;border-radius:10px;width:100%;cursor:pointer';btn.onclick=async()=>{btn.disabled=true;try{const r=await fetch('/.netlify/functions/login',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({password:input.value})});const j=await r.json();if(!r.ok)throw Error(j.error);await start()}catch(e){p.textContent=e.message;btn.disabled=false}};input.onkeydown=e=>{if(e.key==='Enter')btn.click()};box.append(title,p,input,btn);overlay.append(box)};
+ const api=async(payload)=>{const r=await fetch('/.netlify/functions/data',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const j=await r.json();if(!r.ok||j.ok===false)throw Object.assign(new Error(j.error||'저장 실패'),{conflict:j.conflict});return j};
+ async function start(){overlay.textContent='구글시트 데이터 불러오는 중...';try{
+  const initial=await (window.__adminAuthenticated ? api({action:'load'}) : publicApi({action:'load'}));if(!initial.data||!Array.isArray(initial.data.participants))throw Error('초기 데이터가 올바르지 않습니다.');
+  const store=window.appStore;store.data=initial.data;store.sortParticipantsByName();let revision=initial.revision;let attendanceRevision=initial.attendanceRevision||0;let dirty=false,blocked=false,saving=false;let timer=null;let baseline=JSON.parse(JSON.stringify(store.data));
+  const banner=document.createElement('div');banner.id='sync-status';banner.style='position:fixed;bottom:12px;left:12px;background:#222;color:white;padding:8px 14px;border-radius:9px;z-index:9000;font-size:12px';banner.textContent='공용 데이터 연결됨';document.body.appendChild(banner);
+  const localBackup=()=>{try{localStorage.setItem('SHARED_ATTENDANCE_UNSAVED_BACKUP',JSON.stringify(store.data))}catch{}};
+  const nativeSave=store.saveData.bind(store);
+  const send=async()=>{if(saving||blocked||!dirty)return;saving=true;dirty=false;banner.textContent='구글시트 저장 중...';const snapshot=JSON.parse(JSON.stringify(store.data));
+    const before=new Map((baseline.attendances||[]).map(a=>[a.id,a]));
+    const current=new Map((snapshot.attendances||[]).map(a=>[a.id,a]));
+    const upsert=[...current.values()].filter(a=>!before.has(a.id)||JSON.stringify(before.get(a.id))!==JSON.stringify(a));
+    const del=[...before.keys()].filter(id=>!current.has(id));
+    const config=d=>{const copy={...d};delete copy.attendances;return JSON.stringify(copy)};
+    const configChanged=config(snapshot)!==config(baseline);
+    try{const result=await api({action:'save',revision,attendanceRevision,data:snapshot,configChanged,attendanceChanges:{upsert,delete:del}});revision=result.revision;attendanceRevision=result.attendanceRevision??attendanceRevision;baseline=snapshot;banner.textContent='저장 완료';if(dirty)setTimeout(send,100)}catch(e){dirty=true;blocked=!!e.conflict;banner.textContent=blocked?'동시 수정 충돌: 작업 중단 · 관리자에게 문의':'저장 실패: '+e.message;banner.style.background='#b91c1c';localBackup();if(blocked){overlay.style.display='flex';overlay.innerHTML='<div style="background:white;padding:24px;border-radius:12px;max-width:480px"><h2>동시 수정 충돌</h2><p>다른 직원이 먼저 저장했습니다. 현재 화면의 미저장 데이터는 이 브라우저에 임시 백업했습니다. 관리자에게 확인한 후 새로고침하세요.</p><button onclick="location.reload()">새로고침 (미저장 변경 포기)</button></div>'}}finally{saving=false}};
+  store.saveData=()=>{if(!window.__adminAuthenticated){banner.textContent='관리자 로그인이 필요한 작업입니다.';return}if(blocked){banner.textContent='저장 차단: 충돌 확인 필요';return}nativeSave();dirty=true;localBackup();clearTimeout(timer);timer=setTimeout(send,250)};
+  setInterval(async()=>{if(dirty||saving||blocked)return;try{const r=await (window.__adminAuthenticated ? api({action:'load'}) : publicApi({action:'load'}));if(r.revision!==revision||(r.attendanceRevision||0)!==attendanceRevision){revision=r.revision;attendanceRevision=r.attendanceRevision||0;store.data=r.data;baseline=JSON.parse(JSON.stringify(r.data));store.sortParticipantsByName();store.notifyListeners();banner.textContent='다른 직원의 변경사항 반영됨';// 관리자 화면은 현재 UI 재진입 시 다시 렌더링됨
+  }}catch(e){banner.textContent='동기화 확인 실패: '+e.message}},15000);
+  window.__reloadPublicData=async()=>{const r=await publicApi({action:'load'});revision=r.revision;attendanceRevision=r.attendanceRevision||0;store.data=r.data;store.sortParticipantsByName();store.notifyListeners()};
+  window.__loadAdminData=async()=>{const r=await api({action:'load'});revision=r.revision;attendanceRevision=r.attendanceRevision||0;store.data=r.data;baseline=JSON.parse(JSON.stringify(r.data));store.sortParticipantsByName();store.notifyListeners();banner.textContent='관리자 데이터 연결됨'};
+  const script=document.createElement('script');script.src='js/app.js';script.onload=()=>document.dispatchEvent(new Event('DOMContentLoaded'));document.body.appendChild(script);overlay.remove();
+ }catch(e){overlay.textContent='';const b=document.createElement('div');b.style='background:white;padding:24px;border-radius:12px';b.textContent='연결 오류: '+e.message+' ';const retry=document.createElement('button');retry.textContent='다시 시도';retry.onclick=()=>location.reload();b.append(retry);overlay.append(b)}}
+ window.__adminAuthenticated=false;
+ const publicApi=async(payload)=>{const r=await fetch('/.netlify/functions/public',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||'요청 실패');return j};
+ window.__publicCheckin=(participantId,communityId)=>publicApi({action:'checkin',participantId,communityId});
+ window.__requestAdminLogin=()=>new Promise(resolve=>{
+   const gate=document.createElement('div');gate.style='position:fixed;inset:0;z-index:999999;background:#0008;display:flex;align-items:center;justify-content:center;padding:24px';
+   const box=document.createElement('div');box.style='background:white;padding:28px;border-radius:18px;max-width:420px;width:100%';
+   const title=document.createElement('h2');title.textContent='관리자 비밀번호';const info=document.createElement('p');info.textContent='관리자 기능에 접근하려면 비밀번호를 입력하세요.';
+   const inp=document.createElement('input');inp.type='password';inp.placeholder='관리자 비밀번호';inp.style='display:block;width:100%;padding:12px;margin:14px 0;border:1px solid #ddd;border-radius:8px';
+   const ok=document.createElement('button');ok.textContent='로그인';ok.style='background:#ff385c;color:white;padding:12px;border:0;border-radius:8px;cursor:pointer';
+   const cancel=document.createElement('button');cancel.textContent='취소';cancel.style='padding:12px;margin-left:12px';
+   const close=(v)=>{gate.remove();resolve(v)};cancel.onclick=()=>close(false);
+   ok.onclick=async()=>{ok.disabled=true;try{const r=await fetch('/.netlify/functions/login',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({password:inp.value})});const j=await r.json();if(!r.ok)throw Error(j.error||'인증 실패');window.__adminAuthenticated=true;close(true)}catch(e){info.textContent=e.message;ok.disabled=false}};inp.onkeydown=e=>{if(e.key==='Enter')ok.click()};box.append(title,info,inp,ok,cancel);gate.append(box);document.body.append(gate);inp.focus();
+ });
+ await start();
+})();

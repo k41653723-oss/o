@@ -1,0 +1,484 @@
+/* ==========================================================================
+   발달장애인 디지털 출석관리 시스템 - Airbnb Design System Stylesheet
+   ========================================================================== */
+
+:root {
+  --primary: #FF385C;
+  --primary-dark: #E00B41;
+  --primary-light: #FFF0F2;
+  --ink: #222222;
+  --muted-text: #717171;
+  --muted-bg: #F7F7F7;
+  --surface: #FFFFFF;
+  --surface-muted: #F2F2F2;
+  --border: #DDDDDD;
+  --border-soft: #EBEBEB;
+  
+  --success: #038026;
+  --success-bg: #E6F6E9;
+  --warning: #B75F00;
+  --warning-bg: #FFF4E5;
+  --error: #C13515;
+  --error-bg: #FFF0ED;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 28px rgba(0, 0, 0, 0.12);
+  --shadow-hover: 0 12px 32px rgba(255, 56, 92, 0.18);
+  
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 9999px;
+  
+  --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--muted-bg);
+  color: var(--ink);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* ==========================================================================
+   Airbnb Style Base Components
+   ========================================================================== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-weight: 600;
+  font-size: 15px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  color: #FFFFFF;
+  border: none;
+  box-shadow: 0 2px 8px rgba(255, 56, 92, 0.3);
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-dark);
+  box-shadow: 0 4px 14px rgba(255, 56, 92, 0.4);
+}
+
+.btn-secondary {
+  background-color: #FFFFFF;
+  color: var(--ink);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary:hover {
+  border-color: var(--ink);
+  background-color: #FAFAFA;
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--muted-text);
+}
+
+.btn-ghost:hover {
+  background-color: var(--surface-muted);
+  color: var(--ink);
+}
+
+.btn-success {
+  background-color: var(--success);
+  color: #FFFFFF;
+}
+
+.btn-success:hover {
+  background-color: #02661e;
+}
+
+/* ==========================================================================
+   Airbnb Community Pill Tabs
+   ========================================================================== */
+
+.community-tabs-container {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 6px 4px;
+  scrollbar-width: none;
+}
+
+.community-tabs-container::-webkit-scrollbar {
+  display: none;
+}
+
+.community-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  font-size: 17px;
+  font-weight: 700;
+  border-radius: var(--radius-pill);
+  background-color: #FFFFFF;
+  color: var(--muted-text);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.2, 0, 0, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.community-tab-btn:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+  transform: translateY(-1px);
+}
+
+.community-tab-btn.active {
+  background-color: var(--ink);
+  color: #FFFFFF;
+  border-color: var(--ink);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* ==========================================================================
+   참여자 큰 카드 그리드 (발달장애인 맞춤형 큰 터치 영역 & 대형 사진)
+   ========================================================================== */
+
+.participant-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 24px;
+}
+
+@media (min-width: 768px) {
+  .participant-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 28px;
+  }
+}
+
+.participant-card {
+  position: relative;
+  background: var(--surface);
+  border-radius: var(--radius-xl);
+  border: 3px solid transparent;
+  padding: 30px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  user-select: none;
+}
+
+.participant-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 14px 32px rgba(255, 56, 92, 0.18);
+  border-color: #FF385C;
+}
+
+.participant-card:active {
+  transform: scale(0.96);
+}
+
+.participant-card.attended {
+  background: linear-gradient(180deg, #FFFFFF 0%, #F4FDF6 100%);
+  border-color: #038026;
+  box-shadow: 0 6px 20px rgba(3, 128, 38, 0.15);
+}
+
+.participant-card.attended .attended-badge {
+  display: flex;
+}
+
+/* 대형 사진 / 아바타 프레임 */
+.participant-avatar-wrap {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  border: 4px solid #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 58px;
+  font-weight: 800;
+  color: #FFFFFF;
+  transition: transform 0.25s ease;
+}
+
+@media (min-width: 768px) {
+  .participant-avatar-wrap {
+    width: 175px;
+    height: 175px;
+    font-size: 64px;
+  }
+}
+
+.participant-card:hover .participant-avatar-wrap {
+  transform: scale(1.04);
+}
+
+.participant-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.participant-name-btn {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  text-align: center;
+  padding: 6px 16px;
+  border-radius: var(--radius-pill);
+  background-color: #F7F7F7;
+  border: 1px solid #EBEBEB;
+  width: 100%;
+  max-width: 220px;
+  transition: all 0.2s ease;
+}
+
+.participant-card:hover .participant-name-btn {
+  background-color: #FFF0F2;
+  color: #FF385C;
+  border-color: #FFD0D7;
+}
+
+.attended-badge {
+  display: none;
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background-color: var(--success);
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 4px 10px rgba(3, 128, 38, 0.35);
+  align-items: center;
+  gap: 6px;
+  z-index: 10;
+}
+
+/* ==========================================================================
+   출석 완료 모달 / 팝업 애니메이션 (안전한 숨김/표시)
+   ========================================================================== */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: none !important;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease-out;
+}
+
+.modal-backdrop.active {
+  display: flex !important;
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal-sheet {
+  background: #FFFFFF;
+  border-radius: var(--radius-xl);
+  max-width: 540px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  transform: translateY(20px) scale(0.95);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.modal-backdrop.active .modal-sheet {
+  transform: translateY(0) scale(1);
+}
+
+.attendance-success-animation {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--success);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  animation: popSuccess 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes popSuccess {
+  0% { transform: scale(0); }
+  70% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* ==========================================================================
+   관리자 사이드바 & 테이블 스타일
+   ========================================================================== */
+
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--muted-text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.admin-nav-item:hover {
+  background-color: var(--surface-muted);
+  color: var(--ink);
+}
+
+.admin-nav-item.active {
+  background-color: var(--primary-light);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.admin-card {
+  background: #FFFFFF;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-sm);
+  padding: 24px;
+}
+
+.table-custom {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table-custom th {
+  background-color: #FAFAFA;
+  color: var(--muted-text);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.table-custom td {
+  padding: 14px 16px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border-soft);
+  vertical-align: middle;
+}
+
+.table-custom tr:hover td {
+  background-color: #FAFBFD;
+}
+
+/* 커뮤니티 배지 */
+.badge-comm {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+  background-color: #F0F2F5;
+  color: #333;
+}
+
+/* 상태 배지 */
+.badge-status-attend { background-color: var(--success-bg); color: var(--success); }
+.badge-status-late { background-color: var(--warning-bg); color: var(--warning); }
+.badge-status-absent { background-color: var(--error-bg); color: var(--error); }
+.badge-status-cancel { background-color: #EEE; color: #777; }
+
+/* Custom Form Styles */
+.form-control {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+  background-color: #FFF;
+}
+
+.form-control:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(255, 56, 92, 0.15);
+}
+
+/* Toast 알림 */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toast {
+  background: #222222;
+  color: #FFFFFF;
+  padding: 14px 22px;
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: slideToast 0.3s cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+
+@keyframes slideToast {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
