@@ -1147,7 +1147,15 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="flex-1">
             <input type="file" id="form-part-file-input" accept="image/*" class="text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#FFF0F2] file:text-[#FF385C] hover:file:bg-[#ffe0e5] cursor-pointer" />
             <p id="part-photo-upload-status" class="text-[11px] text-gray-500 mt-1">JPG/PNG/WebP 원본 최대 10MB. 자동 축소 후 Drive에 저장됩니다.</p>
+            <button type="button" id="btn-open-drive-picker" class="mt-2 px-3 py-2 text-xs font-bold rounded-lg bg-blue-50 text-blue-800 border border-blue-200">Google Drive에서 기존 사진 선택</button>
           </div>
+        </div>
+        <div id="drive-picker-panel" class="hidden bg-white border border-blue-200 rounded-lg p-3 space-y-2">
+          <label for="drive-picker-folder" class="block text-xs font-bold">사진 폴더</label>
+          <select id="drive-picker-folder" class="form-control text-xs"><option value="">폴더 선택</option></select>
+          <p id="drive-picker-status" class="text-xs text-gray-500" aria-live="polite">폴더를 선택해 주세요.</p>
+          <div id="drive-picker-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-72 overflow-y-auto"></div>
+          <button type="button" id="drive-picker-apply" disabled class="px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-bold disabled:opacity-40">선택한 사진 사용</button>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
           <label class="text-[11px] text-gray-600">가로 위치 <input type="range" id="form-part-photo-x" min="0" max="100" value="${photoPositionX}" class="w-full" /><span id="part-photo-x-value">${photoPositionX}%</span></label>
@@ -1198,6 +1206,72 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         };
         [photoXInput, photoYInput, photoZoomInput].forEach(input => input.addEventListener('input', updatePhotoPreview));
+
+        // 직원 인증 쿠키로만 Drive 사진 목록에 접근. 공개 홈페이지에서는 호출 불가.
+        const pickerPanel=document.getElementById('drive-picker-panel');
+        const pickerSelect=document.getElementById('drive-picker-folder');
+        const pickerGrid=document.getElementById('drive-picker-grid');
+        const pickerStatus=document.getElementById('drive-picker-status');
+        const pickerApply=document.getElementById('drive-picker-apply');
+        let chosenDrivePhoto=null;
+        async function callDrivePicker(payload){
+          const res=await fetch('/.netlify/functions/photo-library',{
+            method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},
+            body:JSON.stringify(payload)
+          });
+          const data=await res.json();
+          if(!res.ok||!data.ok)throw Error(data.error||'Drive 사진 목록을 불러오지 못했습니다.');
+          return data;
+        }
+        document.getElementById('btn-open-drive-picker').addEventListener('click',async()=>{
+          pickerPanel.classList.remove('hidden');pickerStatus.textContent='폴더 목록을 불러오는 중...';
+          pickerApply.disabled=true;chosenDrivePhoto=null;
+          try{
+            const data=await callDrivePicker({action:'listDrivePhotos'});
+            pickerSelect.replaceChildren(new Option('폴더 선택',''));
+            data.folders.forEach(f=>pickerSelect.add(new Option(f.name,f.id)));
+            pickerStatus.textContent='사진이 들어 있는 폴더를 선택하세요.';
+          }catch(err){pickerStatus.textContent='불러오기 실패: '+err.message;}
+        });
+        pickerSelect.addEventListener('change',async()=>{
+          pickerGrid.replaceChildren();chosenDrivePhoto=null;pickerApply.disabled=true;
+          if(!pickerSelect.value)return;
+          const folderId=pickerSelect.value;pickerStatus.textContent='사진을 불러오는 중...';
+          try{
+            const data=await callDrivePicker({action:'listDrivePhotos',folderId});
+            if(pickerSelect.value!==folderId)return;
+            pickerStatus.textContent=`${data.photos.length}장 - 사용할 사진을 선택하세요.`;
+            data.photos.forEach(photo=>{
+              const btn=document.createElement('button');btn.type='button';
+              btn.className='rounded-lg border p-1 text-left hover:border-blue-500 focus:outline-blue-600';
+              const img=document.createElement('div');img.className='aspect-square bg-gray-100 rounded flex items-center justify-center overflow-hidden';
+              if(photo.thumbnail){const node=document.createElement('img');node.src=photo.thumbnail;node.alt=photo.name;node.className='w-full h-full object-cover';img.append(node);}
+              else{img.textContent='사진';img.classList.add('text-xs');}
+              const text=document.createElement('div');text.className='text-[10px] truncate mt-1';text.textContent=photo.name;
+              btn.append(img,text);
+              btn.addEventListener('click',()=>{
+                pickerGrid.querySelectorAll('button').forEach(x=>x.classList.remove('border-blue-600','ring-2','ring-blue-300'));
+                btn.classList.add('border-blue-600','ring-2','ring-blue-300');
+                chosenDrivePhoto={...photo,folderId};pickerApply.disabled=false;
+              });pickerGrid.append(btn);
+            });
+          }catch(err){pickerStatus.textContent='사진 목록 오류: '+err.message;}
+        });
+        pickerApply.addEventListener('click',async()=>{
+          if(!chosenDrivePhoto||photoUploadPending)return;
+          photoUploadPending=true;pickerApply.disabled=true;pickerStatus.textContent='사진을 연결하는 중...';
+          try{
+            const result=await callDrivePicker({action:'selectDrivePhoto',folderId:chosenDrivePhoto.folderId,fileId:chosenDrivePhoto.fileId});
+            uploadedPhotoBase64=result.url;uploadedPhotoFileId=result.fileId;
+            const image=document.createElement('img');image.src=result.url;image.className='w-full h-full object-cover';
+            previewEl.replaceChildren(image);removeBtn.classList.remove('hidden');updatePhotoPreview();
+            pickerStatus.textContent='사진을 선택했어. 아래 이용인 정보 저장 버튼을 눌러 확정해 주세요.';
+            document.getElementById('part-photo-upload-status').textContent='Drive 기존 사진 연결 준비 완료';
+            pickerPanel.classList.add('hidden');
+          }catch(err){pickerStatus.textContent='연결 실패: '+err.message;}
+          finally{photoUploadPending=false;pickerApply.disabled=!chosenDrivePhoto;}
+        });
+
 
         fileInput.addEventListener('change', async (e) => {
           const file = e.target.files[0];
