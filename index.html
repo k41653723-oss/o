@@ -199,6 +199,19 @@
   <!-- 모달 창 (출석 완료 / 수정 / 추가 모달) -->
   <!-- ========================================================================= -->
   
+  <!-- 출석 전 본인 확인: 초록색 확인을 눌러야 출석 저장 시작 -->
+  <div id="modal-identity-confirm" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="identity-question">
+    <div class="modal-sheet identity-confirm-sheet p-6 text-center space-y-5">
+      <h3 id="identity-question" class="text-2xl font-black text-gray-900">본인이 맞나요?</h3>
+      <div id="identity-avatar" class="identity-avatar"></div>
+      <p id="identity-name" class="text-2xl font-bold text-gray-900"></p>
+      <div class="identity-actions">
+        <button type="button" id="identity-yes" class="identity-yes">제가 맞아요</button>
+        <button type="button" id="identity-no" class="identity-no">제가 아니에요</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 참여자 출석 완료 축하 모달 -->
   <div id="modal-attendance-success" class="modal-backdrop">
     <div class="modal-sheet p-8 text-center space-y-6">

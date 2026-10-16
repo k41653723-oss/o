@@ -351,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         card.addEventListener('click', () => {
-          handleParticipantClick(part);
+          openIdentityConfirm(part);
         });
 
         gridEl.appendChild(card);
@@ -404,6 +404,27 @@ document.addEventListener('DOMContentLoaded', () => {
   // ----------------------------------------------------
   // 참여자 카드 클릭 (출석 처리)
   // ----------------------------------------------------
+  // 2차 본인 확인: 확인 전에는 서버로 출석 요청을 보내지 않습니다.
+  let confirmLock = false;
+  function openIdentityConfirm(part) {
+    if (confirmLock) return;
+    const modal = document.getElementById('modal-identity-confirm');
+    const comm = appStore.getCommunityById(state.activeParticipantCommunityId);
+    modal.querySelector('#identity-name').textContent = part.name + ' 님';
+    modal.querySelector('#identity-avatar').innerHTML = getParticipantAvatarHtml(part, comm?.name || '', true);
+    const yes = modal.querySelector('#identity-yes');
+    const no = modal.querySelector('#identity-no');
+    const dismiss = () => {closeModal('modal-identity-confirm'); confirmLock = false;};
+    yes.onclick = () => {
+      if (confirmLock) return;
+      confirmLock = true;
+      closeModal('modal-identity-confirm');
+      handleParticipantClick(part).finally(()=>{confirmLock=false;});
+    };
+    no.onclick = dismiss;
+    openModal('modal-identity-confirm');
+  }
+
   async function handleParticipantClick(part) {
     const communityId = state.activeParticipantCommunityId;
     const key = `${communityId}:${part.id}`;
@@ -762,7 +783,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th>커뮤니티 이름</th>
                 <th>설명</th>
                 <th class="w-24">참여자 수</th>
-                <th class="w-24">상태</th>
+                <th class="w-28 text-center">상태</th>
                 <th class="w-32 text-right">관리</th>
               </tr>
             </thead>
@@ -780,11 +801,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${c.active ? '사용 중' : '비활성'}
                       </span>
                     </td>
-                    <td class="text-right space-x-1">
+                    <td class="text-right align-middle"><div class="admin-table-actions">
                       <button data-edit-id="${c.id}" class="btn btn-secondary text-xs py-1 px-2.5 btn-edit-comm">수정</button>
                       <button data-toggle-id="${c.id}" class="btn btn-ghost text-xs py-1 px-2 btn-toggle-comm">${c.active ? '비활성화' : '활성화'}</button>
                       <button data-delete-id="${c.id}" class="btn btn-ghost text-xs py-1 px-2 text-red-600 btn-delete-comm">삭제</button>
-                    </td>
+                    </div></td>
                   </tr>
                 `;
               }).join('')}
@@ -1116,11 +1137,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <option value="false" ${!p.active ? 'selected' : ''}>비활성</option>
                       </select>
                     </td>
-                    <td class="text-right space-x-1">
+                    <td class="text-right align-middle"><div class="admin-table-actions">
                       <button data-save-id="${p.id}" class="btn btn-primary text-xs py-1 px-2.5 btn-save-part">저장</button>
                       <button data-edit-id="${p.id}" class="btn btn-secondary text-xs py-1 px-2 btn-edit-part">사진/상세</button>
                       <button data-delete-id="${p.id}" class="btn btn-ghost text-xs py-1 px-2 text-red-600 btn-delete-part">삭제</button>
-                    </td>
+                    </div></td>
                   </tr>
                 `;
               }).join('')}
@@ -1499,7 +1520,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th>영역명</th>
                 <th>소속 커뮤니티</th>
                 <th class="w-24">프로그램 수</th>
-                <th class="w-24">상태</th>
+                <th class="w-28 text-center">상태</th>
                 <th class="w-32 text-right">관리</th>
               </tr>
             </thead>
@@ -1519,11 +1540,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${a.active ? '사용 중' : '비활성'}
                       </span>
                     </td>
-                    <td class="text-right space-x-1">
+                    <td class="text-right align-middle"><div class="admin-table-actions">
                       <button data-edit-id="${a.id}" class="btn btn-secondary text-xs py-1 px-2.5 btn-edit-area">수정</button>
                       <button data-toggle-id="${a.id}" class="btn btn-ghost text-xs py-1 px-2 btn-toggle-area">${a.active ? '비활성' : '활성'}</button>
                       <button data-delete-id="${a.id}" class="btn btn-ghost text-xs py-1 px-2 text-red-600 btn-delete-area">삭제</button>
-                    </td>
+                    </div></td>
                   </tr>
                 `;
               }).join('')}
@@ -1665,7 +1686,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th>커뮤니티 / 소속 영역</th>
                 <th>담당 직원</th>
                 <th>운영시간 / 장소</th>
-                <th class="w-20">상태</th>
+                <th class="w-28 text-center">상태</th>
                 <th class="w-32 text-right">관리</th>
               </tr>
             </thead>
@@ -1685,16 +1706,16 @@ document.addEventListener('DOMContentLoaded', () => {
                       <div>${p.time || '-'}</div>
                       <div class="text-gray-400">${p.location || '-'}</div>
                     </td>
-                    <td>
-                      <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${p.active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}">
+                    <td class="text-center align-middle whitespace-nowrap">
+                      <span class="inline-flex items-center justify-center min-w-[76px] px-2.5 py-1 rounded-full text-xs font-bold ${p.active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}">
                         ${p.active ? '사용 중' : '비활성'}
                       </span>
                     </td>
-                    <td class="text-right space-x-1">
+                    <td class="text-right align-middle"><div class="admin-table-actions">
                       <button data-edit-id="${p.id}" class="btn btn-secondary text-xs py-1 px-2.5 btn-edit-prog">수정</button>
                       <button data-toggle-id="${p.id}" class="btn btn-ghost text-xs py-1 px-2 btn-toggle-prog">${p.active ? '비활성' : '활성'}</button>
                       <button data-delete-id="${p.id}" class="btn btn-ghost text-xs py-1 px-2 text-red-600 btn-delete-prog">삭제</button>
-                    </td>
+                    </div></td>
                   </tr>
                 `;
               }).join('')}
@@ -1875,7 +1896,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th class="w-16">번호</th>
                 <th>직원 이름</th>
                 <th>담당 프로그램 수</th>
-                <th class="w-24">상태</th>
+                <th class="w-28 text-center">상태</th>
                 <th class="w-32 text-right">관리</th>
               </tr>
             </thead>
@@ -1889,16 +1910,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="font-bold text-gray-500">${idx + 1}</td>
                     <td class="font-bold text-base text-gray-900">${s.name}</td>
                     <td class="text-sm font-semibold text-gray-600">${progCount}개 프로그램</td>
-                    <td>
-                      <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${s.active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}">
+                    <td class="text-center align-middle whitespace-nowrap">
+                      <span class="inline-flex items-center justify-center min-w-[88px] px-2.5 py-1 rounded-full text-xs font-bold ${s.active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}">
                         ${s.active ? '재직/활성' : '비활성'}
                       </span>
                     </td>
-                    <td class="text-right space-x-1">
+                    <td class="text-right align-middle"><div class="admin-table-actions">
                       <button data-edit-staff-id="${s.id}" class="btn btn-secondary text-xs py-1 px-2.5 btn-edit-staff">이름 수정</button>
                       <button data-toggle-staff-id="${s.id}" class="btn btn-ghost text-xs py-1 px-2 btn-toggle-staff">${s.active ? '비활성' : '활성'}</button>
                       <button data-delete-staff-id="${s.id}" class="btn btn-ghost text-xs py-1 px-2 text-red-600 btn-delete-staff">삭제</button>
-                    </td>
+                    </div></td>
                   </tr>
                 `;
               }).join('')}
@@ -2303,6 +2324,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // ----------------------------------------------------
   // 2-9. 관리자 - 월별 출석률 (PRD 계산식 반영)
   // ----------------------------------------------------
+  function escapeHtmlForStats(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
   function renderAdminAttendanceRates(container) {
     const filterCommId = state.selectedAdminCommunityId === 'ALL' ? null : state.selectedAdminCommunityId;
     const monthStr = state.selectedStatsMonth; // 'YYYY-MM'
@@ -2314,7 +2338,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div>
             <h2 class="text-xl font-bold text-[#222222]">월별 개인 출석률 분석</h2>
             <p class="text-xs text-gray-500">
-              공식: <strong>출석률 = 실제 출석 횟수 ÷ 실제 운영된 출석 대상 횟수 × 100</strong>
+              공식: <strong>출석률 = 평일 출석일 수 ÷ 해당 월 평일 수 × 100</strong> (하루 여러 프로그램도 1회, 이번 달은 오늘까지)
             </p>
           </div>
           <div class="flex items-center gap-2">
@@ -2330,9 +2354,9 @@ document.addEventListener('DOMContentLoaded', () => {
               <tr>
                 <th>커뮤니티</th>
                 <th>참여자 이름</th>
-                <th class="text-right">예정/운영 횟수</th>
-                <th class="text-right">실제 출석</th>
-                <th class="text-right">결석</th>
+                <th class="text-right">평일 일수</th>
+                <th class="text-right">출석일 수</th>
+                <th class="text-right">미출석일 수</th>
                 <th class="text-right">출석률</th>
               </tr>
             </thead>
@@ -2357,6 +2381,16 @@ document.addEventListener('DOMContentLoaded', () => {
               }).join('')}
             </tbody>
           </table>
+        </div>
+        <div class="border-t border-gray-200 pt-5 space-y-3">
+          <h3 class="text-lg font-bold text-gray-900">요일별 · 프로그램별 개인 출석률</h3>
+          <p class="text-xs text-gray-500">현재 등록된 요일별 프로그램 편성을 기준으로 해당 요일의 출석일 수를 계산합니다. 같은 날 여러 프로그램은 이 표에서 각각 표시됩니다.</p>
+          <div class="overflow-x-auto">
+            <table class="table-custom">
+              <thead><tr><th>커뮤니티</th><th>이용인</th><th>요일</th><th>프로그램</th><th class="text-right">운영 예정일</th><th class="text-right">출석일</th><th class="text-right">출석률</th></tr></thead>
+              <tbody>${appStore.calculateProgramDayStats(monthStr,filterCommId).map(row=>`<tr><td>${escapeHtmlForStats(row.community_name)}</td><td class="font-semibold">${escapeHtmlForStats(row.participant_name)}</td><td>${row.weekday}요일</td><td>${escapeHtmlForStats(row.program_name)}</td><td class="text-right">${row.expected_count}일</td><td class="text-right">${row.attended_count}일</td><td class="text-right">${row.attendance_rate}</td></tr>`).join('')||'<tr><td colspan="7" class="text-center text-gray-400 py-6">해당 월 프로그램 편성이 없습니다.</td></tr>'}</tbody>
+            </table>
+          </div>
         </div>
       </div>
     `;

@@ -860,59 +860,67 @@ class DataStore {
   }
 
   // ----------------------------------------------------
-  // 월별 개인 출석률 통계 계산 로직
-  // 공식: 출석률 = 실제 출석 횟수 ÷ 실제 운영된 출석 대상 횟수 × 100
-  // (프로그램 취소·휴관 등 미운영 일정은 분모에서 제외)
-  // ----------------------------------------------------
+  // 월별 개인 출석률: 평일(월~금) 기준, 한 사람당 하루 최대 1회.
+  // 현재 달은 오늘까지, 지난달은 전체 평일만 분모에 포함합니다.
+  getMonthWeekdays(yearMonth) {
+    const [y, m] = yearMonth.split('-').map(Number);
+    if (!y || m < 1 || m > 12) return [];
+    const lastDay = new Date(y, m, 0).getDate();
+    const todayKey = this.formatDateKey();
+    const keys = [];
+    for (let d = 1; d <= lastDay; d++) {
+      const date = new Date(y, m - 1, d);
+      const day = date.getDay();
+      const key = this.formatDateKey(date);
+      if (day !== 0 && day !== 6 && key <= todayKey) keys.push(key);
+    }
+    return keys;
+  }
+
   calculateMonthlyStats(yearMonth, communityId = null) {
-    // yearMonth: 'YYYY-MM'
-    const [year, month] = yearMonth.split('-').map(Number);
-    const daysInMonth = new Date(year, month, 0).getDate();
-    
-    // 대상 참여자
-    const participants = this.getParticipants(communityId, true);
-    const communities = this.getCommunities(false);
-    const commMap = Object.fromEntries(communities.map(c => [c.id, c.name]));
-
-    const monthlyAttendances = this.getAttendances({ month: yearMonth, communityId });
-
-    const stats = participants.map(part => {
-      const partCommId = part.community_id;
-      
-      // 해당 월 동안 이 참여자에게 예정되었던 총 프로그램 횟수 계산
-      let expectedCount = 0;
-      for (let d = 1; d <= daysInMonth; d++) {
-        const dateObj = new Date(year, month - 1, d);
-        const dayOfWeek = dateObj.getDay();
-        if (dayOfWeek === 0 || dayOfWeek === 6) continue;
-        const scheds = this.getSchedules(dayOfWeek, partCommId, true);
-        expectedCount += scheds.length;
-      }
-
-      // 실제 출석 기록
-      const partAtts = monthlyAttendances.filter(a => a.participant_id === part.id);
-      const attendedCount = partAtts.filter(a => a.attendance_status === '출석' || a.attendance_status === '지각' || a.attendance_status === '조퇴').length;
-      const absentCount = partAtts.filter(a => a.attendance_status === '결석').length;
-      const canceledCount = partAtts.filter(a => a.attendance_status === '프로그램취소').length;
-
-      // 실제 운영된 출석 대상 횟수 = 예정 횟수 - 취소 횟수
-      const actualOperatedCount = Math.max(expectedCount - canceledCount, attendedCount);
-      const rate = actualOperatedCount > 0 ? ((attendedCount / actualOperatedCount) * 100).toFixed(1) : '0.0';
-
+    const weekdays = this.getMonthWeekdays(yearMonth);
+    const weekdaySet = new Set(weekdays);
+    const commMap = Object.fromEntries(this.getCommunities(false).map(c => [c.id, c.name]));
+    const monthRecords = this.getAttendances({month: yearMonth, communityId});
+    const valid = new Set(['출석', '지각', '조퇴']);
+    return this.getParticipants(communityId, true).map(p => {
+      const days = new Set(monthRecords.filter(a => a.participant_id === p.id && valid.has(a.attendance_status) && weekdaySet.has(a.attendance_date)).map(a => a.attendance_date));
+      const expected = weekdays.length;
+      const attended = days.size;
       return {
-        participant_id: part.id,
-        participant_name: part.name,
-        community_id: partCommId,
-        community_name: commMap[partCommId] || '미정',
-        expected_count: actualOperatedCount,
-        attended_count: attendedCount,
-        absent_count: absentCount,
-        attendance_rate: `${rate}%`
+        participant_id:p.id, participant_name:p.name, community_id:p.community_id,
+        community_name:commMap[p.community_id] || '미정',
+        expected_count:expected, attended_count:attended,
+        absent_count:Math.max(0,expected-attended),
+        attendance_rate:expected ? `${(attended/expected*100).toFixed(1)}%` : '0.0%'
       };
     });
-
-    return stats;
   }
+
+  // 요일별/프로그램별 표는 각 요일의 예정일 수를 분모로 독립 계산합니다.
+  // 편성 이력은 보관하지 않으므로 현재 활성 요일표를 기준으로 계산합니다.
+  calculateProgramDayStats(yearMonth, communityId = null) {
+    const weekdays = this.getMonthWeekdays(yearMonth);
+    const valid = new Set(['출석','지각','조퇴']);
+    const records = this.getAttendances({month:yearMonth,communityId});
+    const programs = this.data.programs || [];
+    const comms = Object.fromEntries(this.getCommunities(false).map(c=>[c.id,c.name]));
+    const dayNames = ['일','월','화','수','목','금','토'];
+    const results=[];
+    for (const p of this.getParticipants(communityId,true)) {
+      for (const sch of this.getSchedules(null,p.community_id,true)) {
+        const prog = programs.find(x=>x.id===sch.program_id && x.active!==false);
+        if (!prog) continue;
+        const day = Number(sch.weekday);
+        if (day<1 || day>5) continue;
+        const dates = weekdays.filter(key=>{const [y,m,d]=key.split('-').map(Number);return new Date(y,m-1,d).getDay()===day;});
+        const actual = new Set(records.filter(a=>a.participant_id===p.id && a.program_id===prog.id && valid.has(a.attendance_status) && dates.includes(a.attendance_date)).map(a=>a.attendance_date)).size;
+        results.push({community_name:comms[p.community_id]||'미정',participant_name:p.name,weekday:dayNames[day],program_name:prog.name,expected_count:dates.length,attended_count:actual,attendance_rate:dates.length?`${(actual/dates.length*100).toFixed(1)}%`:'0.0%'});
+      }
+    }
+    return results;
+  }
+
 }
 
 // 전역 인스턴스 생성

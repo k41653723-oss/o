@@ -519,3 +519,15 @@ body {
   .desktop-missing-names { font-size: 14px; line-height: 1.8; margin-top: 7px; font-weight: 650; color: #333; overflow-wrap: anywhere; }
   .desktop-missing-note { font-size: 11px; color: #777; margin-top: 4px; }
 }
+
+/* 관리자 표의 상태와 관리 버튼을 일정한 높이로 정렬 */
+.admin-table-actions {display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;min-width:230px}
+.admin-table-actions .btn {white-space:nowrap;flex-shrink:0}
+/* 출석 본인 확인 - 넓은 터치 영역과 명확한 색 대비 */
+.identity-confirm-sheet {max-width:430px;width:calc(100% - 32px)}
+.identity-avatar {display:flex;justify-content:center;margin:8px auto}
+.identity-avatar .participant-avatar-wrap {width:154px;height:154px;max-width:100%;border-radius:22px;overflow:hidden}
+.identity-actions {display:grid;grid-template-columns:1fr;gap:12px}
+.identity-yes,.identity-no {min-height:78px;border-radius:18px;font-size:clamp(21px,5vw,27px);font-weight:900;color:#fff;touch-action:manipulation}
+.identity-yes {background:#087c2c}.identity-no {background:#c52424}
+.identity-yes:focus-visible,.identity-no:focus-visible {outline:4px solid #1d4ed8;outline-offset:3px}
