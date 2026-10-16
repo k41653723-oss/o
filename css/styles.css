@@ -482,3 +482,40 @@ body {
   from { transform: translateY(100%); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+
+/* Mobile accessibility: large two-column cards, no nested scrolling. */
+.mobile-attendance-nav, .mobile-attendance-summary {display:none;}
+.mobile-hidden {display:none !important;}
+@media (max-width: 767px) {
+  #participant-view {padding:12px;gap:12px;}
+  .mobile-attendance-nav {display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .mobile-main-tab {min-height:58px;border:2px solid #ddd;border-radius:14px;background:#fff;font-size:17px;font-weight:800;color:#333;touch-action:manipulation;}
+  .mobile-main-tab.active {background:#222;color:#fff;border-color:#222;}
+  .mobile-attendance-summary:not([hidden]) {display:block;}
+  .mobile-summary-overall {padding:16px;border-radius:14px;background:#f4f4f4;font-weight:800;font-size:18px;margin-bottom:10px;}
+  .mobile-summary-groups {display:grid;grid-template-columns:1fr;gap:10px;}
+  .mobile-summary-card {border:1px solid #ddd;border-radius:14px;padding:14px;background:white;}
+  .mobile-summary-card-head {display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:16px;}
+  .mobile-summary-card-head span {font-size:14px;white-space:nowrap;}
+  .mobile-summary-missing-label {font-size:13px;color:#555;margin-top:10px;}
+  .mobile-summary-names {font-size:16px;font-weight:700;line-height:1.55;overflow-wrap:anywhere;margin:4px 0 12px;}
+  .mobile-summary-jump {min-height:48px;padding:10px 14px;border:1px solid #ccc;border-radius:10px;font-weight:700;width:100%;background:#fff;}
+  .mobile-summary-note {font-size:12px;color:#666;margin-top:12px;line-height:1.5;}
+  .community-tabs-container {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;overflow:visible;}
+  .community-tab-btn {border-radius:14px;min-height:62px;padding:10px;justify-content:center;flex-wrap:wrap;gap:6px;font-size:17px;touch-action:manipulation;}
+  .participant-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;overflow:visible;max-height:none;}
+  .participant-card {min-width:0;min-height:185px;padding:14px 7px;touch-action:manipulation;cursor:pointer;}
+  .participant-avatar-wrap {width:96px;height:96px;max-width:100%;}
+  .participant-name-btn {min-height:44px;white-space:normal;overflow-wrap:anywhere;}
+}
+
+/* PC 출석 화면: 별도 조작 없이 선택 커뮤니티 미출석 이름 표시 */
+.desktop-missing-summary { display: none; }
+@media (min-width: 768px) {
+  .desktop-missing-summary { display: block; padding: 14px 18px; background: #fff7f8; border: 1px solid #f6d8df; border-radius: 16px; }
+  .desktop-missing-header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: #292929; }
+  .desktop-missing-header strong { font-size: 15px; font-weight: 800; }
+  .desktop-missing-count { background: #fff; border: 1px solid #f4cbd4; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 800; color: #a52342; }
+  .desktop-missing-names { font-size: 14px; line-height: 1.8; margin-top: 7px; font-weight: 650; color: #333; overflow-wrap: anywhere; }
+  .desktop-missing-note { font-size: 11px; color: #777; margin-top: 4px; }
+}

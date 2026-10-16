@@ -79,6 +79,17 @@
   <!-- ========================================================================= -->
   <main id="participant-view" class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
     
+    <!-- 모바일: 화면 내부 스크롤 없는 출석/현황 전환 -->
+    <nav id="mobile-attendance-nav" class="mobile-attendance-nav" aria-label="모바일 출석 화면">
+      <button type="button" id="mobile-tab-check" class="mobile-main-tab active" aria-selected="true">출석 체크</button>
+      <button type="button" id="mobile-tab-status" class="mobile-main-tab" aria-selected="false">오늘 현황</button>
+    </nav>
+    <section id="mobile-attendance-summary" class="mobile-attendance-summary" hidden aria-label="오늘 커뮤니티별 출석 현황">
+      <div class="mobile-summary-overall" id="mobile-summary-overall"></div>
+      <div class="mobile-summary-groups" id="mobile-summary-groups"></div>
+      <p class="mobile-summary-note">미출석은 아직 출석 확인이 안 된 상태이며, 결석 확정과는 다릅니다. 다른 기기 기록은 약 15초 간격으로 확인합니다.</p>
+    </section>
+    <div id="mobile-check-content" class="mobile-check-content">
     <!-- 커뮤니티 선택 탭 (동적 생성 및 이름 수정 반영) -->
     <section class="bg-white p-3 rounded-2xl border border-[#EBEBEB] shadow-sm">
       <div class="flex items-center justify-between mb-2 px-2">
@@ -88,6 +99,16 @@
       <div id="participant-community-tabs" class="community-tabs-container">
         <!-- 탭 버튼이 JavaScript로 동적 렌더링됩니다 -->
       </div>
+    </section>
+
+    <!-- PC 전용: 선택한 커뮤니티의 오늘 미출석자 명단 -->
+    <section id="desktop-missing-summary" class="desktop-missing-summary" aria-label="선택한 커뮤니티의 오늘 미출석 현황">
+      <div class="desktop-missing-header">
+        <strong id="desktop-missing-title">오늘 미출석 현황</strong>
+        <span id="desktop-missing-count" class="desktop-missing-count">조회 중</span>
+      </div>
+      <p id="desktop-missing-names" class="desktop-missing-names" aria-live="polite">오늘 출석 내역을 불러오는 중입니다.</p>
+      <p class="desktop-missing-note">미출석은 아직 출석 확인이 되지 않은 상태이며, 결석 확정과는 다릅니다.</p>
     </section>
 
     <!-- 당일 요일/영역/프로그램 안내 배너 -->
@@ -137,6 +158,7 @@
         <!-- 참여자 카드가 동적 렌더링됩니다 -->
       </div>
     </section>
+    </div><!-- /mobile-check-content -->
   </main>
 
   <!-- ========================================================================= -->

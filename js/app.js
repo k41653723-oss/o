@@ -187,6 +187,63 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
   });
 
+  // 모바일만 사용: 기본은 출석 체크. 명단 안에 별도 스크롤을 두지 않습니다.
+  let mobileParticipantTab = 'check';
+  const mobileCheck = document.getElementById('mobile-tab-check');
+  const mobileStatus = document.getElementById('mobile-tab-status');
+  function chooseMobileTab(tab) {
+    mobileParticipantTab = tab;
+    const isStatus = tab === 'status';
+    document.getElementById('mobile-attendance-summary').hidden = !isStatus;
+    document.getElementById('mobile-check-content').classList.toggle('mobile-hidden', isStatus);
+    mobileCheck.classList.toggle('active', !isStatus);
+    mobileStatus.classList.toggle('active', isStatus);
+    mobileCheck.setAttribute('aria-selected', String(!isStatus));
+    mobileStatus.setAttribute('aria-selected', String(isStatus));
+    if (isStatus) renderMobileSummary();
+  }
+  mobileCheck?.addEventListener('click', () => chooseMobileTab('check'));
+  mobileStatus?.addEventListener('click', () => chooseMobileTab('status'));
+
+  const attendanceComplete = a => ['출석', '지각', '조퇴'].includes(a.attendance_status);
+  function renderMobileSummary() {
+    const groupContainer = document.getElementById('mobile-summary-groups');
+    const overall = document.getElementById('mobile-summary-overall');
+    if (!groupContainer || !overall) return;
+    groupContainer.replaceChildren();
+    const today = appStore.formatDateKey();
+    const groups = appStore.getCommunities(true);
+    let all = 0, done = 0;
+    groups.forEach(comm => {
+      const people = appStore.getParticipants(comm.id, true);
+      const records = appStore.getAttendances({date:today, communityId:comm.id});
+      const attended = new Set(records.filter(attendanceComplete).map(a=>a.participant_id));
+      const missing = people.filter(person=>!attended.has(person.id));
+      all += people.length;
+      done += people.length-missing.length;
+      const card = document.createElement('section');
+      card.className='mobile-summary-card';
+      const header=document.createElement('div');
+      header.className='mobile-summary-card-head';
+      const title=document.createElement('strong');title.textContent=comm.name;
+      const numbers=document.createElement('span');numbers.textContent=`${people.length-missing.length} / ${people.length}명 출석`;
+      header.append(title,numbers);
+      const label=document.createElement('div');label.className='mobile-summary-missing-label';
+      label.textContent=`미출석 ${missing.length}명`;
+      const names=document.createElement('p');names.className='mobile-summary-names';
+      names.textContent=missing.length ? missing.map(p=>p.name).join(', ') : '미출석자 없음';
+      const jump=document.createElement('button');jump.type='button';jump.className='mobile-summary-jump';
+      jump.textContent='이 커뮤니티 출석하기';
+      jump.addEventListener('click',()=>{
+        state.activeParticipantCommunityId=comm.id;
+        chooseMobileTab('check');renderParticipantView();
+        window.scrollTo({top:0,behavior:'instant'});
+      });
+      card.append(header,label,names,jump);groupContainer.appendChild(card);
+    });
+    overall.textContent=`오늘 전체 출석 ${done} / ${all}명 · 미출석 ${all-done}명`;
+  }
+
   // ----------------------------------------------------
   // 1. 참여자 출석 화면 렌더링
   // ----------------------------------------------------
@@ -302,6 +359,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     attendedCountEl.textContent = attendedCount;
+    // PC: 출석 화면에서 커뮤니티 선택과 출석 여부가 바뀔 때마다 즉시 갱신
+    const missingPeople = participants.filter(part => !todayAtts.some(a => a.participant_id === part.id && attendanceComplete(a)));
+    const desktopTitle = document.getElementById('desktop-missing-title');
+    const desktopCount = document.getElementById('desktop-missing-count');
+    const desktopNames = document.getElementById('desktop-missing-names');
+    if (desktopTitle && desktopCount && desktopNames) {
+      desktopTitle.textContent = `${currentComm ? currentComm.name : '커뮤니티'} · 오늘 미출석`;
+      desktopCount.textContent = `${missingPeople.length}명 / 전체 ${participants.length}명`;
+      desktopNames.textContent = missingPeople.length ? missingPeople.map(p => p.name).join(' · ') : '미출석자가 없습니다. 모두 출석했어요.';
+    }
+    renderMobileSummary();
     lucide.createIcons();
   }
 
@@ -515,6 +583,16 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
   }
 
+  // 새 항목은 현재 관리자 커뮤니티 탭을 기본값으로 사용하고,
+  // 수정 시에는 기존 항목의 소속을 우선 유지한다.
+  function getDefaultFormCommunityId(communities, item = null) {
+    const existingId = item && item.community_id;
+    if (existingId && communities.some(c => c.id === existingId)) return existingId;
+    const selectedId = state.selectedAdminCommunityId;
+    if (selectedId !== 'ALL' && communities.some(c => c.id === selectedId)) return selectedId;
+    return communities.length ? communities[0].id : '';
+  }
+
   // ----------------------------------------------------
   // [관리자 공통] 커뮤니티 필터 바 헬퍼
   // ----------------------------------------------------
@@ -567,7 +645,8 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const attendedPartIds = new Set(cAtts.filter(a => a.attendance_status === '출석' || a.attendance_status === '지각' || a.attendance_status === '조퇴').map(a => a.participant_id));
       const attendedCount = attendedPartIds.size;
-      const unAttendedCount = Math.max(0, parts.length - attendedCount);
+      const missingNames = parts.filter(p => !attendedPartIds.has(p.id)).map(p => p.name);
+      const unAttendedCount = missingNames.length;
 
       totalParticipants += parts.length;
       totalAttended += attendedCount;
@@ -591,6 +670,10 @@ document.addEventListener('DOMContentLoaded', () => {
               <div class="text-gray-400 font-medium">미출석</div>
               <div class="text-base font-bold text-[#FF385C]">${unAttendedCount}명</div>
             </div>
+          </div>
+          <div class="rounded-xl bg-rose-50/60 border border-rose-100 px-3 py-2 text-xs">
+            <strong class="block text-gray-700 mb-1">오늘 미출석자 ${unAttendedCount}명</strong>
+            <span class="text-gray-700" data-missing-names="${c.id}"></span>
           </div>
           <div class="text-[11px] text-gray-500 line-clamp-1">
             <strong>오늘 영역:</strong> ${todayProgs.map(p => p.area ? p.area.name : '').filter(Boolean).join(', ') || '없음'}
@@ -641,6 +724,12 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
 
+    communities.forEach(c => {
+      const parts = appStore.getParticipants(c.id, true);
+      const arrived = new Set(todayAtts.filter(a => a.community_id === c.id && attendanceComplete(a)).map(a => a.participant_id));
+      const target = Array.from(container.querySelectorAll('[data-missing-names]')).find(el => el.getAttribute('data-missing-names') === c.id);
+      if (target) target.textContent = parts.filter(p => !arrived.has(p.id)).map(p => p.name).join(' · ') || '미출석자 없음';
+    });
     document.getElementById('btn-quick-refresh')?.addEventListener('click', () => {
       renderAdminDashboard(container);
       showToast('대시보드 데이터를 갱신했습니다.');
@@ -1103,8 +1192,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function openParticipantFormModal(part = null) {
     const isEdit = !!part;
     const communities = appStore.getCommunities(true);
+    const defaultCommunityId = getDefaultFormCommunityId(communities, part);
     const commOptions = communities.map(c => `
-      <option value="${c.id}" ${part && part.community_id === c.id ? 'selected' : ''}>${c.name}</option>
+      <option value="${c.id}" ${defaultCommunityId === c.id ? 'selected' : ''}>${c.name}</option>
     `).join('');
 
     let uploadedPhotoBase64 = part ? (part.photo_url || '') : '';
@@ -1485,8 +1575,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function openAreaFormModal(area = null) {
     const isEdit = !!area;
     const communities = appStore.getCommunities(true);
+    const defaultCommunityId = getDefaultFormCommunityId(communities, area);
     const commOptions = communities.map(c => `
-      <option value="${c.id}" ${area && area.community_id === c.id ? 'selected' : ''}>${c.name}</option>
+      <option value="${c.id}" ${defaultCommunityId === c.id ? 'selected' : ''}>${c.name}</option>
     `).join('');
 
     const bodyHtml = `
@@ -1657,8 +1748,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const communities = appStore.getCommunities(true);
     const staffs = appStore.getStaffs(true);
 
+    const defaultCommunityId = getDefaultFormCommunityId(communities, prog);
     const commOptions = communities.map(c => `
-      <option value="${c.id}" ${prog && prog.community_id === c.id ? 'selected' : ''}>${c.name}</option>
+      <option value="${c.id}" ${defaultCommunityId === c.id ? 'selected' : ''}>${c.name}</option>
     `).join('');
 
     const staffOptions = staffs.map(s => `
@@ -1985,7 +2077,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (![1, 2, 3, 4, 5].includes(Number(weekday))) { alert('요일별 운영은 월요일부터 금요일까지만 설정할 수 있습니다.'); return; }
     const dayNames = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
     const communities = appStore.getCommunities(true);
-    const commOptions = communities.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    const defaultCommunityId = getDefaultFormCommunityId(communities);
+    const commOptions = communities.map(c => `<option value="${c.id}" ${defaultCommunityId === c.id ? 'selected' : ''}>${c.name}</option>`).join('');
 
     const bodyHtml = `
       <div class="space-y-1">
