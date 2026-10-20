@@ -531,3 +531,12 @@ body {
 .identity-yes,.identity-no {min-height:78px;border-radius:18px;font-size:clamp(21px,5vw,27px);font-weight:900;color:#fff;touch-action:manipulation}
 .identity-yes {background:#087c2c}.identity-no {background:#c52424}
 .identity-yes:focus-visible,.identity-no:focus-visible {outline:4px solid #1d4ed8;outline-offset:3px}
+
+/* 개인별 요일 출석률: 짧고 읽기 쉬운 5개 가로 막대 */
+.weekday-rate-chart { display:flex; flex-direction:column; gap:14px; padding:14px 2px 8px; }
+.weekday-rate-row { display:grid; grid-template-columns:28px minmax(0,1fr) 72px; gap:12px; align-items:center; }
+.weekday-rate-day { font-size:15px; font-weight:800; color:#30353e; }
+.weekday-rate-track { height:22px; border-radius:999px; background:#edf0f3; overflow:hidden; }
+.weekday-rate-fill { height:100%; background:#17a85b; border-radius:999px; transition:width .2s ease; }
+.weekday-rate-value { font-size:15px; font-weight:800; color:#176d41; text-align:right; font-variant-numeric:tabular-nums; }
+@media(max-width:480px){.weekday-rate-row{gap:8px;grid-template-columns:24px minmax(0,1fr) 62px}.weekday-rate-value{font-size:13px}}

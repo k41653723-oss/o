@@ -862,9 +862,17 @@ class DataStore {
   // ----------------------------------------------------
   // 월별 개인 출석률: 평일(월~금) 기준, 한 사람당 하루 최대 1회.
   // 현재 달은 오늘까지, 지난달은 전체 평일만 분모에 포함합니다.
+  // 공식 연도별 공휴일 목록. 서버 확인 전에는 출석률을 표시하지 않습니다.
+  setKoreanHolidays(year, dateKeys) {
+    if (!this.koreanHolidayDates) this.koreanHolidayDates = {};
+    this.koreanHolidayDates[String(year)] = new Set(dateKeys);
+  }
+
   getMonthWeekdays(yearMonth) {
     const [y, m] = yearMonth.split('-').map(Number);
     if (!y || m < 1 || m > 12) return [];
+    const holidayDays = this.koreanHolidayDates?.[String(y)];
+    if (!(holidayDays instanceof Set)) throw new Error(`${y}년 대한민국 공휴일 데이터를 먼저 불러와야 합니다.`);
     const lastDay = new Date(y, m, 0).getDate();
     const todayKey = this.formatDateKey();
     const keys = [];
@@ -872,7 +880,7 @@ class DataStore {
       const date = new Date(y, m - 1, d);
       const day = date.getDay();
       const key = this.formatDateKey(date);
-      if (day !== 0 && day !== 6 && key <= todayKey) keys.push(key);
+      if (day !== 0 && day !== 6 && key <= todayKey && !holidayDays.has(key)) keys.push(key);
     }
     return keys;
   }
@@ -897,6 +905,25 @@ class DataStore {
     });
   }
 
+  // 선택한 이용인의 월~금 출석률: 같은 날 여러 프로그램을 출석해도 1일로 계산합니다.
+  calculatePersonWeekdayStats(yearMonth, participantId) {
+    const dates = this.getMonthWeekdays(yearMonth);
+    const valid = new Set(['출석', '지각', '조퇴']);
+    const attendedDates = new Set(this.getAttendances({month:yearMonth})
+      .filter(a => a.participant_id === participantId && valid.has(a.attendance_status))
+      .map(a => a.attendance_date));
+    return [1,2,3,4,5].map(day => {
+      const matching = dates.filter(key => {
+        const [y,m,d] = key.split('-').map(Number);
+        return new Date(y,m-1,d).getDay() === day;
+      });
+      const attended = matching.filter(key => attendedDates.has(key)).length;
+      return {weekday: ['','월','화','수','목','금'][day],
+        expected_count: matching.length, attended_count: attended,
+        percentage: matching.length ? Math.round(attended / matching.length * 1000) / 10 : 0};
+    });
+  }
+
   // 요일별/프로그램별 표는 각 요일의 예정일 수를 분모로 독립 계산합니다.
   // 편성 이력은 보관하지 않으므로 현재 활성 요일표를 기준으로 계산합니다.
   calculateProgramDayStats(yearMonth, communityId = null) {
@@ -915,7 +942,7 @@ class DataStore {
         if (day<1 || day>5) continue;
         const dates = weekdays.filter(key=>{const [y,m,d]=key.split('-').map(Number);return new Date(y,m-1,d).getDay()===day;});
         const actual = new Set(records.filter(a=>a.participant_id===p.id && a.program_id===prog.id && valid.has(a.attendance_status) && dates.includes(a.attendance_date)).map(a=>a.attendance_date)).size;
-        results.push({community_name:comms[p.community_id]||'미정',participant_name:p.name,weekday:dayNames[day],program_name:prog.name,expected_count:dates.length,attended_count:actual,attendance_rate:dates.length?`${(actual/dates.length*100).toFixed(1)}%`:'0.0%'});
+        results.push({participant_id:p.id,community_name:comms[p.community_id]||'미정',participant_name:p.name,weekday:dayNames[day],program_name:prog.name,expected_count:dates.length,attended_count:actual,attendance_rate:dates.length?`${(actual/dates.length*100).toFixed(1)}%`:'0.0%'});
       }
     }
     return results;

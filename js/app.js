@@ -94,7 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
     activeAdminTab: 'dashboard',
     selectedAdminCommunityId: 'ALL', // 'ALL' 또는 특정 community_id
     selectedAttendanceDate: appStore.formatDateKey(),
-    selectedStatsMonth: appStore.formatDateKey().substring(0, 7) // 'YYYY-MM'
+    selectedStatsMonth: appStore.formatDateKey().substring(0, 7), // 'YYYY-MM'
+    selectedProgramStatsParticipantId: null // 월별 요일·프로그램 통계의 이용인 선택
   };
 
   // 초기 커뮤니티 ID 설정
@@ -519,14 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       renderParticipantView();
     }
-    // 서버 저장 완료 후에만 최신 데이터를 다시 읽습니다. 화면 안내는 재조회 때문에 지연되지 않습니다.
-    if (!window.__adminAuthenticated) {
-      try {
-        await window.__reloadPublicData();
-      } catch (e) {
-        showToast('출석은 저장됐지만 화면 갱신에 실패했습니다. 새로고침해 주세요.', 'alert-circle');
-      }
-    }
+    // 재조회는 15초 동기화 주기에 맡깁니다. 저장 직후 전체 명단 조회를 중복 실행하지 않습니다.
     renderParticipantView();
     lucide.createIcons();
   }
@@ -2327,10 +2321,58 @@ document.addEventListener('DOMContentLoaded', () => {
   function escapeHtmlForStats(value) {
     return String(value ?? '').replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   }
+  // 공공데이터포털 공휴일 조회: 연도별 캐시(12시간). API 오류 시 잘못된 출석률을 표시하지 않음.
+  const holidayLoadingByYear = new Map();
+  function prepareKoreanHolidays(month, container) {
+    const year = String(month || '').slice(0,4);
+    if (!/^\d{4}$/.test(year)) return false;
+    if (appStore.koreanHolidayDates?.[year] instanceof Set) return true;
+    const cacheKey = `KOREA_OFFICIAL_HOLIDAYS_${year}_V1`;
+    try {
+      const entry = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+      if (entry && Date.now() - entry.updatedAt < 12 * 60 * 60 * 1000 && Array.isArray(entry.dates)) {
+        appStore.setKoreanHolidays(year,entry.dates);
+        return true;
+      }
+    } catch (_) {}
+    if (!holidayLoadingByYear.has(year)) {
+      holidayLoadingByYear.set(year,{pending:true});
+      fetch(`/.netlify/functions/holidays?year=${year}`,{credentials:'same-origin'})
+        .then(async r=>{const result=await r.json();if(!r.ok || !result.ok) throw Error(result.error||'공휴일 조회 실패');return result})
+        .then(result=>{
+          appStore.setKoreanHolidays(year,result.dates);
+          try {localStorage.setItem(cacheKey,JSON.stringify({updatedAt:Date.now(),dates:result.dates}));} catch (_) {}
+          holidayLoadingByYear.delete(year);
+          if (state.currentAdminView === 'attendance-rates' || document.contains(container)) renderAdminAttendanceRates(container);
+        })
+        .catch(error=>{
+          holidayLoadingByYear.set(year,{pending:false,error:error.message});
+          if (document.contains(container)) renderAdminAttendanceRates(container);
+        });
+    }
+    const status = holidayLoadingByYear.get(year);
+    container.innerHTML = `<div class="admin-card space-y-3"><h2 class="text-xl font-bold">월별 개인 출석률 분석</h2>
+      <label class="text-sm">조회 월 <input id="stats-month-picker" type="month" class="form-control" value="${escapeHtmlForStats(month)}"></label>
+      <div class="text-sm ${status?.error?'text-red-600':'text-gray-600'}">${status?.error?'공휴일 데이터를 불러오지 못했습니다: '+escapeHtmlForStats(status.error):year+'년 대한민국 공휴일 정보를 조회하고 있습니다...'}</div>
+      ${status?.error?'<button id="retry-holiday-fetch" class="btn btn-secondary">다시 시도</button>':''}</div>`;
+    container.querySelector('#retry-holiday-fetch')?.addEventListener('click',()=>{holidayLoadingByYear.delete(year);renderAdminAttendanceRates(container)});
+    container.querySelector('#stats-month-picker')?.addEventListener('change',e=>{state.selectedStatsMonth=e.target.value;renderAdminAttendanceRates(container)});
+    return false;
+  }
   function renderAdminAttendanceRates(container) {
     const filterCommId = state.selectedAdminCommunityId === 'ALL' ? null : state.selectedAdminCommunityId;
     const monthStr = state.selectedStatsMonth; // 'YYYY-MM'
+    if (!prepareKoreanHolidays(monthStr,container)) return;
     const stats = appStore.calculateMonthlyStats(monthStr, filterCommId);
+    // 커뮤니티 필터를 반영한 이용인 목록. ID로 선택하여 동명이인을 혼동하지 않습니다.
+    const programPeople = appStore.getParticipants(filterCommId, true).slice()
+      .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ko'));
+    const communityNameById = Object.fromEntries(appStore.getCommunities(true).map(c=>[c.id,c.name]));
+    const existingSelection = state.selectedProgramStatsParticipantId;
+    const selectedProgramPersonId = programPeople.some(p=>p.id===existingSelection)
+      ? existingSelection : (programPeople[0]?.id || '');
+    state.selectedProgramStatsParticipantId=selectedProgramPersonId;
+    const weekdayBars = selectedProgramPersonId ? appStore.calculatePersonWeekdayStats(monthStr,selectedProgramPersonId) : [];
 
     container.innerHTML = `
       <div class="admin-card space-y-4">
@@ -2338,7 +2380,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div>
             <h2 class="text-xl font-bold text-[#222222]">월별 개인 출석률 분석</h2>
             <p class="text-xs text-gray-500">
-              공식: <strong>출석률 = 평일 출석일 수 ÷ 해당 월 평일 수 × 100</strong> (하루 여러 프로그램도 1회, 이번 달은 오늘까지)
+              공식: <strong>출석률 = 공휴일 제외 운영일 중 출석일 수 ÷ 해당 월 운영일 수 × 100</strong> (토·일·대한민국 공휴일 제외, 하루 여러 프로그램도 1회, 이번 달은 오늘까지)
             </p>
           </div>
           <div class="flex items-center gap-2">
@@ -2354,7 +2396,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <tr>
                 <th>커뮤니티</th>
                 <th>참여자 이름</th>
-                <th class="text-right">평일 일수</th>
+                <th class="text-right">운영일 수</th>
                 <th class="text-right">출석일 수</th>
                 <th class="text-right">미출석일 수</th>
                 <th class="text-right">출석률</th>
@@ -2382,14 +2424,23 @@ document.addEventListener('DOMContentLoaded', () => {
             </tbody>
           </table>
         </div>
-        <div class="border-t border-gray-200 pt-5 space-y-3">
-          <h3 class="text-lg font-bold text-gray-900">요일별 · 프로그램별 개인 출석률</h3>
-          <p class="text-xs text-gray-500">현재 등록된 요일별 프로그램 편성을 기준으로 해당 요일의 출석일 수를 계산합니다. 같은 날 여러 프로그램은 이 표에서 각각 표시됩니다.</p>
-          <div class="overflow-x-auto">
-            <table class="table-custom">
-              <thead><tr><th>커뮤니티</th><th>이용인</th><th>요일</th><th>프로그램</th><th class="text-right">운영 예정일</th><th class="text-right">출석일</th><th class="text-right">출석률</th></tr></thead>
-              <tbody>${appStore.calculateProgramDayStats(monthStr,filterCommId).map(row=>`<tr><td>${escapeHtmlForStats(row.community_name)}</td><td class="font-semibold">${escapeHtmlForStats(row.participant_name)}</td><td>${row.weekday}요일</td><td>${escapeHtmlForStats(row.program_name)}</td><td class="text-right">${row.expected_count}일</td><td class="text-right">${row.attended_count}일</td><td class="text-right">${row.attendance_rate}</td></tr>`).join('')||'<tr><td colspan="7" class="text-center text-gray-400 py-6">해당 월 프로그램 편성이 없습니다.</td></tr>'}</tbody>
-            </table>
+        <div class="border-t border-gray-200 pt-5 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h3 class="text-lg font-bold text-gray-900">개인별 요일 출석률</h3>
+            <select id="stats-program-person-picker" class="form-control text-sm bg-white sm:max-w-xs" aria-label="요일별 출석률 조회 이용인">
+              ${programPeople.map(p=>`<option value="${escapeHtmlForStats(p.id)}" ${selectedProgramPersonId===p.id?'selected':''}>${escapeHtmlForStats(p.name)}${filterCommId ? '' : ' · '+escapeHtmlForStats(communityNameById[p.community_id]||'미정')}</option>`).join('')}
+            </select>
+          </div>
+          <div class="weekday-rate-chart" role="group" aria-label="${escapeHtmlForStats((programPeople.find(p=>p.id===selectedProgramPersonId)||{}).name||'이용인')}의 요일별 출석률">
+            ${weekdayBars.length ? weekdayBars.map(row=>`
+              <div class="weekday-rate-row" aria-label="${row.weekday}요일 출석률 ${row.percentage.toFixed(1)}퍼센트">
+                <span class="weekday-rate-day">${row.weekday}</span>
+                <div class="weekday-rate-track" role="img" aria-label="${row.percentage.toFixed(1)}%">
+                  <div class="weekday-rate-fill" style="width:${Math.max(0,Math.min(100,row.percentage))}%"></div>
+                </div>
+                <strong class="weekday-rate-value">${row.percentage.toFixed(1)}%</strong>
+              </div>
+            `).join('') : '<p class="text-center text-gray-400 py-6">조회할 이용인이 없습니다.</p>'}
           </div>
         </div>
       </div>
@@ -2397,6 +2448,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const filterWrap = container.querySelector('#stats-comm-filter-wrap');
     filterWrap.appendChild(createCommunityFilterBar(() => renderAdminAttendanceRates(container), true));
+
+    container.querySelector('#stats-program-person-picker')?.addEventListener('change', e => {
+      state.selectedProgramStatsParticipantId = e.target.value;
+      renderAdminAttendanceRates(container);
+    });
 
     document.getElementById('stats-month-picker')?.addEventListener('change', (e) => {
       state.selectedStatsMonth = e.target.value;
