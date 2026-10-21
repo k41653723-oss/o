@@ -33,6 +33,27 @@ window.handleAvatarError = function(imgEl, initialLetter) {
   }
 };
 
+/**
+ * 사진 위치 조정 공통 규칙.
+ * object-position만으로는 세로형 사진의 가로 이동이 되지 않을 수 있습니다.
+ * zoom으로 생긴 실제 이동 가능 범위 안에서 이미지를 translate합니다.
+ * photo_position_x/y 및 photo_zoom 저장 형식은 그대로 유지합니다.
+ */
+window.getParticipantPhotoStyle = function(x = 50, y = 50, zoom = 1) {
+  const clamp = (value, low, high, fallback) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.min(high, Math.max(low, number)) : fallback;
+  };
+  const px = clamp(x, 0, 100, 50);
+  const py = clamp(y, 0, 100, 50);
+  const scale = clamp(zoom, 1, 2, 1);
+  // 확대 200%라면 중심에서 좌우 최대 50%씩 이동 가능.
+  // object-position은 확대 전 원본 비율에 의한 자르기에도 그대로 적용.
+  const moveX = (50 - px) * (scale - 1);
+  const moveY = (50 - py) * (scale - 1);
+  return `object-position:${px}% ${py}%;transform-origin:center center;transform:translate(${moveX}%, ${moveY}%) scale(${scale});`;
+};
+
 window.getParticipantAvatarHtml = function(part, commName = '', isLarge = true) {
   const initialLetter = (part.name || '').substring(0, 1) || 'U';
   const bgColor = part.avatar_color || '#FF5A5F';
@@ -68,7 +89,7 @@ window.getParticipantAvatarHtml = function(part, commName = '', isLarge = true) 
   if (isLarge) {
     return `
       <div class="participant-avatar-wrap" style="background-color: ${bgColor};">
-        <img src="${candidates[0]}" alt="${part.name}" class="participant-avatar-img" style="object-position:${photoX}% ${photoY}%;transform:scale(${photoZoom});"
+        <img src="${candidates[0]}" alt="${part.name}" class="participant-avatar-img" style="${getParticipantPhotoStyle(photoX, photoY, photoZoom)}"
              data-candidates="${dataAttr}" data-idx="0"
              onerror="handleAvatarError(this, '${initialLetter}')" />
       </div>
@@ -76,7 +97,7 @@ window.getParticipantAvatarHtml = function(part, commName = '', isLarge = true) 
   } else {
     return `
       <div class="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-white font-bold text-sm shadow-sm border border-gray-200" style="background-color: ${bgColor};">
-        <img src="${candidates[0]}" alt="${part.name}" class="w-full h-full object-cover" style="object-position:${photoX}% ${photoY}%;transform:scale(${photoZoom});"
+        <img src="${candidates[0]}" alt="${part.name}" class="w-full h-full object-cover" style="${getParticipantPhotoStyle(photoX, photoY, photoZoom)}"
              data-candidates="${dataAttr}" data-idx="0"
              onerror="handleAvatarError(this, '${initialLetter}')" />
       </div>
@@ -1247,7 +1268,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </label>
         <div class="flex items-center gap-3">
           <div id="part-photo-preview" class="w-20 h-20 rounded-full border border-gray-300 bg-white overflow-hidden flex items-center justify-center shrink-0">
-            ${uploadedPhotoBase64 ? `<img src="${uploadedPhotoBase64}" class="w-full h-full object-cover" style="object-position:${photoPositionX}% ${photoPositionY}%;transform:scale(${photoZoom})" />` : `<i data-lucide="user" class="w-7 h-7 text-gray-400"></i>`}
+            ${uploadedPhotoBase64 ? `<img src="${uploadedPhotoBase64}" class="w-full h-full object-cover" style="${getParticipantPhotoStyle(photoPositionX, photoPositionY, photoZoom)}" />` : `<i data-lucide="user" class="w-7 h-7 text-gray-400"></i>`}
           </div>
           <div class="flex-1">
             <input type="file" id="form-part-file-input" accept="image/*" class="text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#FFF0F2] file:text-[#FF385C] hover:file:bg-[#ffe0e5] cursor-pointer" />
@@ -1306,8 +1327,7 @@ document.addEventListener('DOMContentLoaded', () => {
           document.getElementById('part-photo-zoom-value').textContent = `${Math.round(photoZoom * 100)}%`;
           const img = previewEl.querySelector('img');
           if (img) {
-            img.style.objectPosition = `${photoPositionX}% ${photoPositionY}%`;
-            img.style.transform = `scale(${photoZoom})`;
+            img.style.cssText = getParticipantPhotoStyle(photoPositionX, photoPositionY, photoZoom);
           }
         };
         [photoXInput, photoYInput, photoZoomInput].forEach(input => input.addEventListener('input', updatePhotoPreview));
@@ -1430,7 +1450,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok || !result.ok) throw new Error(result.error || '업로드 실패');
             uploadedPhotoBase64 = result.url;
             uploadedPhotoFileId = result.fileId;
-            previewEl.innerHTML = `<img src="${uploadedPhotoBase64}" class="w-full h-full object-cover" style="object-position:${photoPositionX}% ${photoPositionY}%;transform:scale(${photoZoom})" />`;
+            previewEl.innerHTML = `<img src="${uploadedPhotoBase64}" class="w-full h-full object-cover" style="${getParticipantPhotoStyle(photoPositionX, photoPositionY, photoZoom)}" />`;
             removeBtn.classList.remove('hidden');
             status.textContent = 'Drive 업로드 완료. 아래 저장 버튼을 눌러 이용인 정보에 반영하세요.';
           } catch (error) {
